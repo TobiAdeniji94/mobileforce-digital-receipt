@@ -1,17 +1,21 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
 
 import 'package:carousel_slider/carousel_controller.dart';
 import 'package:digital_receipt/constant.dart';
 import 'package:digital_receipt/models/receipt.dart';
+import 'package:digital_receipt/screens/no_internet_connection.dart';
 import 'package:digital_receipt/screens/receipt_screen.dart';
 import 'package:digital_receipt/services/CarouselIndex.dart';
+import 'package:digital_receipt/utils/connected.dart';
 import 'package:digital_receipt/widgets/app_textfield.dart';
 import 'package:digital_receipt/widgets/date_time_input_textField.dart';
 import 'package:digital_receipt/widgets/loading.dart';
 import 'package:digital_receipt/widgets/submit_button.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -45,6 +49,10 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
   TextEditingController _hexCodeController = TextEditingController()
     ..text = "F14C4C";
 
+  final FocusNode _receiptNumberFocus = FocusNode();
+  final FocusNode _dateTextFocus = FocusNode();
+  final FocusNode _hexCodeFocus = FocusNode();
+
   bool autoReceiptNo = true;
   String fontVal = "100";
   DateTime date = DateTime.now();
@@ -53,6 +61,14 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _receiptNumberFocus.dispose();
+    _dateTextFocus.dispose();
+    _hexCodeFocus.dispose();
+    super.dispose();
   }
 
   Future getImageSignature() async {
@@ -68,6 +84,14 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
     } else {
       print("no file");
     }
+  }
+
+  setPreReceipt(String result) {
+    var temp = json.decode(result)['receiptData'];
+    Provider.of<Receipt>(context, listen: false).setIssueDate(temp['date']);
+    Provider.of<Receipt>(context, listen: false)
+        .setNumber(temp['receipt_number']);
+    Provider.of<Receipt>(context, listen: false).receiptId = temp['id'];
   }
 
   bool isLoading = false;
@@ -148,7 +172,7 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
             SizedBox(
               height: 24,
             ),
-            Text(
+            /* Text(
               'Add receipt No (Optional)',
               style: TextStyle(
                 fontFamily: 'Montserrat',
@@ -160,6 +184,10 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
             ),
             SizedBox(height: 5),
             AppTextFieldForm(
+              focusNode: _receiptNumberFocus,
+              textInputAction: TextInputAction.next,
+              onFieldSubmitted: (value) =>
+                  _changeFocus(from: _receiptNumberFocus, to: _dateTextFocus),
               controller: _receiptNumberController,
             ),
             SizedBox(
@@ -191,7 +219,7 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
             ),
             SizedBox(
               height: 32,
-            ),
+            ), */
             Text(
               'Date',
               style: TextStyle(
@@ -204,6 +232,7 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
             ),
             SizedBox(height: 5),
             DateTimeInputTextField(
+                focusNode: _dateTextFocus,
                 controller: _dateTextController,
                 onTap: () async {
                   final DateTime picked = await showDatePicker(
@@ -213,6 +242,7 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
                     lastDate: date.add(Duration(days: 365)),
                   );
 
+                  _dateTextFocus.unfocus();
                   if (picked != null && picked != date) {
                     setState(() {
                       date = picked;
@@ -220,7 +250,35 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
                     });
                   }
                 }),
-            /*  SizedBox(
+            SizedBox(
+              height: 20,
+            ),
+            /* Text(
+              'Seller\'s name',
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontWeight: FontWeight.normal,
+                letterSpacing: 0.3,
+                fontSize: 13,
+                color: Color.fromRGBO(0, 0, 0, 0.6),
+              ),
+            ),
+            SizedBox(height: 5),
+            TextFormField(
+              decoration: InputDecoration(
+                contentPadding: EdgeInsets.all(17),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  borderSide: BorderSide(
+                    color: Color(0xFFC8C8C8),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(),
+                errorStyle: TextStyle(height: 0.5),
+              ),
+            ), */
+/*  SizedBox(
                     height: 30,
                   ),
                   DropdownButtonFormField<String>(
@@ -409,12 +467,88 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
             ),
             SizedBox(height: 20),
             AppTextFieldForm(
+              focusNode: _hexCodeFocus,
+              textInputAction: TextInputAction.next,
+              onFieldSubmitted: (value) => _hexCodeFocus.unfocus(),
               controller: _hexCodeController,
               hintText: 'Enter Brand color hex code',
               hintColor: Color.fromRGBO(0, 0, 0, 0.38),
               borderWidth: 1.5,
             ),
+
             SizedBox(height: 37),
+           /*  Text(
+              'Select a receipt',
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.3,
+                fontSize: 16,
+                color: Color.fromRGBO(0, 0, 0, 0.87),
+              ),
+            ),
+            SizedBox(height: 10),
+            SizedBox(
+              height: 200,
+              width: double.infinity,
+              child: ListView.builder(
+                itemCount: 5,
+                scrollDirection: Axis.horizontal,
+                itemBuilder: (BuildContext context, int index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 15),
+                    child: GestureDetector(
+                      onTap: () {
+                        showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return Scaffold(
+
+                              );
+                            });
+                      },
+                      child: SizedBox(
+                        height: 200,
+                        width: 150,
+                        child: Stack(
+                          children: <Widget>[
+                            Container(
+                              height: 200,
+                              width: 150,
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(5),
+                                  image: DecorationImage(
+                                    image: AssetImage(''),
+                                  ),
+                                  color: Colors.amberAccent),
+                            ),
+                            Container(
+                              height: 200,
+                              width: 150,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(5),
+                                image: DecorationImage(
+                                  image: AssetImage(''),
+                                ),
+                                color: Color.fromRGBO(0, 0, 0, 0.3),
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ), */
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
@@ -466,12 +600,29 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
                 ),
               ],
             ),
+
             SizedBox(height: 40),
+
             SizedBox(
               height: 50,
               width: double.infinity,
               child: FlatButton(
+                color: Color(0xFF0B57A7),
                 onPressed: () async {
+                  // check the internet
+                  var connected = await Connected().checkInternet();
+                  if (!connected) {
+                    await showDialog(
+                      context: context,
+                      builder: (context) {
+                        return NoInternet();
+                      },
+                    );
+                    setState(() {
+                      isLoading = false;
+                    });
+                    return;
+                  }
                   setState(() {
                     isLoading = true;
                   });
@@ -481,16 +632,24 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
                       .setColor(hexCode: _hexCodeController.text);
                   Provider.of<Receipt>(context, listen: false).setFont(24);
 
-                  var result =
+                  Response result =
                       await Provider.of<Receipt>(context, listen: false)
                           .saveReceipt();
 
-                  if (result == "Receipt saved successfully") {
+                  if (result.statusCode == 200) {
                     setState(() {
                       isLoading = false;
                     });
+                    setPreReceipt(result.body);
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReceiptScreen(),
+                      ),
+                    );
                     Fluttertoast.showToast(
-                        msg: "Receipt saved successfully",
+                        msg: "Receipt saved to draft",
                         toastLength: Toast.LENGTH_LONG,
                         gravity: ToastGravity.BOTTOM,
                         timeInSecForIosWeb: 1,
@@ -512,65 +671,36 @@ class _CreateReceiptStep2State extends State<CreateReceiptStep2> {
                   }
                 },
                 shape: RoundedRectangleBorder(
-                    side: BorderSide(color: Color(0xFF0B57A7), width: 1.5),
+                    //side: BorderSide(color: Color(0xFF0B57A7), width: 1.5),
                     borderRadius: BorderRadius.circular(5)),
                 child: isLoading
                     ? ButtonLoadingIndicator(
-                        color: kPrimaryColor,
+                        color: Colors.white,
                         width: 20,
                         height: 20,
                       )
                     : Text(
-                        'Save to drafts',
+                        'Generate Receipt',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.3,
                           fontSize: 18,
-                          color: Colors.black,
+                          color: Colors.white,
                         ),
                       ),
               ),
             ),
-            SizedBox(height: 25),
-            SubmitButton(
-              onPressed: () async {
-                if (Provider.of<Receipt>(context, listen: false)
-                    .shouldGenReceiptNo()) {
-                  Provider.of<Receipt>(context, listen: false)
-                      .setNumber(Random().nextInt(999) + 100);
-                } else {
-                  try {
-                    Provider.of<Receipt>(context, listen: false)
-                        .setNumber(int.parse(_receiptNumberController.text));
-                  } catch (e) {
-                    print(e);
-                  }
-                }
-                Provider.of<Receipt>(context, listen: false)
-                    .setIssueDate(_dateTextController.text);
-                Provider.of<Receipt>(context, listen: false)
-                    .setColor(hexCode: _hexCodeController.text);
-                Provider.of<Receipt>(context, listen: false)
-                    .setFont(int.parse(fontVal));
-
-                /* await Provider.of<Receipt>(context, listen: false)
-                          .saveReceipt(); */
-
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ReceiptScreen(),
-                    ));
-              },
-              title: 'Generate Receipt',
-              textColor: Colors.white,
-              backgroundColor: Color(0xFF0B57A7),
-            ),
+            // SizedBox(height: 25),
           ],
         ),
       ),
     );
+  }
+
+  void _changeFocus({FocusNode from, FocusNode to}) {
+    from.unfocus();
+    FocusScope.of(context).requestFocus(to);
   }
 }
 

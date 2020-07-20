@@ -1,10 +1,12 @@
 import 'package:carousel_slider/carousel_controller.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:digital_receipt/models/inventory.dart';
 import 'package:digital_receipt/models/product.dart';
 import 'package:digital_receipt/models/receipt.dart';
 import 'package:digital_receipt/screens/create_receipt_page.dart';
 import 'package:digital_receipt/screens/no_internet_connection.dart';
 import 'package:digital_receipt/services/CarouselIndex.dart';
+import 'package:digital_receipt/services/api_service.dart';
 import 'package:digital_receipt/utils/connected.dart';
 import 'package:digital_receipt/widgets/app_textfield.dart';
 import 'package:digital_receipt/widgets/product_detail.dart';
@@ -14,10 +16,18 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../constant.dart';
+import 'contact_card.dart';
+
 class CreateReceiptStep1 extends StatefulWidget {
-  const CreateReceiptStep1({this.carouselController, this.carouselIndex});
+  const CreateReceiptStep1(
+      {this.carouselController,
+      this.carouselIndex,
+      this.issuedCustomerReceipt});
+
   final CarouselController carouselController;
   final CarouselIndex carouselIndex;
+  final Receipt issuedCustomerReceipt;
 
   @override
   _CreateReceiptStep1State createState() => _CreateReceiptStep1State();
@@ -41,6 +51,30 @@ class _CreateReceiptStep1State extends State<CreateReceiptStep1> {
 
   final _time = TextEditingController();
   final _date = TextEditingController();
+
+  getInventories() async {
+    try {
+      Provider.of<Inventory>(context, listen: false).setInventoryList =
+          await ApiService().getAllInventories();
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  @override
+  void initState() {
+    getInventories();
+    if (widget.issuedCustomerReceipt != null) {
+      updateContents();
+    }
+    super.initState();
+  }
+
+  updateContents() {
+    widget.issuedCustomerReceipt.products.forEach((product) {
+      products.add(product);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +199,7 @@ class _CreateReceiptStep1State extends State<CreateReceiptStep1> {
                 ),
               ),
             ),
+            SizedBox(height: 29),
             SizedBox(
               height: 20,
             ),
@@ -221,7 +256,8 @@ class _CreateReceiptStep1State extends State<CreateReceiptStep1> {
                       amount: Provider.of<Receipt>(context, listen: false)
                               .getCurrency()
                               .currencySymbol +
-                          '${thisProduct.amount}',
+                          '${thisProduct.amount ?? (thisProduct.unitPrice * thisProduct.quantity)}',
+                      // '${}',
                       index: index,
                     ),
                   );
@@ -389,7 +425,7 @@ class _CreateReceiptStep1State extends State<CreateReceiptStep1> {
                 } else {
                   num sum = 0;
                   for (Product e in products) {
-                    sum += e.amount;
+                    sum += e.amount ?? (e.unitPrice * e.quantity);
                   }
                   print("sum: $sum");
 

@@ -9,6 +9,7 @@ import 'package:digital_receipt/utils/connected.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -26,22 +27,36 @@ class CustomerList extends StatefulWidget {
 
 class _CustomerListState extends State<CustomerList> {
   String dropdownValue = "Last Upadated";
-
+  TextEditingController _searchFieldController = TextEditingController();
   ApiService _apiService = ApiService();
   var customerList;
 
   refreshCustomerList() async {
-   customerList = await _apiService.getAllCustomers();
+    customerList = await _apiService.getAllCustomers();
     //print(res);
   }
 
   @override
   void initState() {
     super.initState();
+    Future.delayed(Duration.zero, () {
+      setCustomer();
+    });
+  }
+
+  setCustomer() async {
+    List customerData = await _apiService.getAllCustomers();
+    List<Customer> customersCopy = [];
+    customerData.forEach((customer) {
+      customersCopy.add(Customer.fromJson(customer));
+    });
+    Provider.of<Customer>(context, listen: false).setCustomerList =
+        customersCopy;
   }
 
   @override
   Widget build(BuildContext context) {
+    var _customerListModel = Provider.of<Customer>(context, listen: false);
     return Scaffold(
       // backgroundColor: Color(0xffE5E5E5),
       appBar: AppBar(
@@ -74,7 +89,10 @@ class _CustomerListState extends State<CustomerList> {
                 prefixIcon: IconButton(
                   icon: Icon(Icons.search),
                   color: Color.fromRGBO(0, 0, 0, 0.38),
-                  onPressed: () {},
+                  onPressed: () {
+                    _customerListModel
+                        .searchCustomerList(_searchFieldController.text);
+                  },
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(5),
@@ -92,6 +110,9 @@ class _CustomerListState extends State<CustomerList> {
                   ),
                 ),
               ),
+              onChanged: (value) {
+                _customerListModel.searchCustomerList(value);
+              },
             ),
             SizedBox(height: 30.0),
             Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -177,22 +198,30 @@ class _CustomerListState extends State<CustomerList> {
                       return Column(
                         children: <Widget>[
                           SizedBox(height: 20.0),
-                          Flexible(
-                            child: ListView.builder(
-                              itemCount: customerList.length,
-                              itemBuilder: (context, index) {
-                                return customer(
-                                    customerName: customerList[index]['name'],
-                                    customerEmail: customerList[index]['email'],
-                                    index: index,
-                                    phoneNumber: customerList[index]
-                                        ['phoneNumber'],
-                                    address: customerList[index]['address']
+                          Consumer<Customer>(
+                            builder: (_, model, child) {
+                              // child:
+                              return Flexible(
+                                child: ListView.builder(
+                                  itemCount: model.customerList.length,
+                                  itemBuilder: (context, index) {
+                                    return customer(
+                                      customerName:
+                                          model.customerList[index].name,
+                                      customerEmail:
+                                          model.customerList[index].email,
+                                      index: index,
+                                      phoneNumber: model
+                                          .customerList[index].phoneNumber,
+                                      address:
+                                          model.customerList[index].address,
 
-                                    // numberOfReceipts: 0,
+                                      // numberOfReceipts: 0,
                                     );
-                              },
-                            ),
+                                  },
+                                ),
+                              );
+                            },
                           ),
                         ],
                       );
@@ -426,7 +455,7 @@ class _CustomerListState extends State<CustomerList> {
             : SizedBox.shrink(),
         index == 0
             ? Text(
-                'Swipe for more options',
+                'Swipe for more options, longpress to delete',
                 textAlign: TextAlign.center,
               )
             : SizedBox.shrink(),
@@ -436,4 +465,77 @@ class _CustomerListState extends State<CustomerList> {
       ],
     );
   }
+
+  //   _confirmCuustomerDelete(String id, String name) {
+  //   return showDialog(
+  //       context: context,
+  //       barrierDismissible: false,
+  //       builder: (BuildContext context) {
+  //         return AlertDialog(
+  //           contentPadding: EdgeInsets.all(10),
+  //           // insetPadding: EdgeInsets.all(50),
+  //           title: Text(
+  //             "Are sure you want to delete $name?",
+  //             style: TextStyle(
+  //               fontSize: 15,
+  //             ),
+  //           ),
+  //           content: SingleChildScrollView(
+  //             scrollDirection: Axis.vertical,
+  //             padding: EdgeInsets.all(30.0),
+  //             child: Expanded(
+  //               child: ListBody(
+  //                 children: <Widget>[
+  //                   Row(
+  //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //                     children: <Widget>[
+  //                       MaterialButton(
+  //                         onPressed: () {
+  //                           Navigator.pop(context);
+  //                         },
+  //                         color: Colors.blue[50],
+  //                         child: Padding(
+  //                           padding: const EdgeInsets.all(8.0),
+  //                           child: Text(
+  //                             'cancel',
+  //                             style: TextStyle(
+  //                                 fontSize: 13, fontWeight: FontWeight.bold),
+  //                           ),
+  //                         ),
+  //                       ),
+  //                       MaterialButton(
+  //                         onPressed: () async {
+  //                           var resp =
+  //                               await _apiService.deleteCustomer(id: id);
+  //                           if (resp == 'false') {
+  //                             Navigator.push(context, MaterialPageRoute(builder:(_)=> CustomerList()));
+  //                             Fluttertoast.showToast(msg: 'an error occured');
+  //                           } else {
+  //                             Navigator.push(context, MaterialPageRoute(builder:(_)=> CustomerList()));
+  //                             print('successful');
+  //                           }
+  //                         },
+  //                         color: Colors.red,
+  //                         child: Padding(
+  //                           padding: const EdgeInsets.all(8.0),
+  //                           child: Text(
+  //                             'delete',
+  //                             style: TextStyle(
+  //                                 fontSize: 13, fontWeight: FontWeight.bold),
+  //                           ),
+  //                         ),
+  //                       )
+
+  //                     ],
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ),
+  //         );
+  //       });
+
+  // }
 }
+
+
