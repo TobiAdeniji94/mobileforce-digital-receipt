@@ -35,7 +35,7 @@ packages:
       name: async
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "2.4.1"
+    version: "2.4.2"
   barcode:
     dependency: transitive
     description:
@@ -113,6 +113,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.2.1"
+  characters:
+    dependency: transitive
+    description:
+      name: characters
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "1.1.0-nullsafety"
   charcode:
     dependency: transitive
     description:
@@ -147,7 +154,9 @@ packages:
       name: collection
       url: "https://pub.dartlang.org"
     source: hosted
+
     version: "1.14.12"
+
   convert:
     dependency: transitive
     description:
@@ -355,7 +364,7 @@ packages:
       name: flutter_svg
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.17.4"
+    version: "0.18.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -429,6 +438,7 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.4.1+1"
+<<<<<<< HEAD
   hive_flutter:
     dependency: "direct main"
     description:
@@ -436,6 +446,8 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "0.2.1"
+=======
+>>>>>>> 992b36d703de62dc8805936dba2ecfc148e39776
   hive_generator:
     dependency: "direct dev"
     description:
@@ -477,7 +489,7 @@ packages:
       name: image
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "2.1.12"
+    version: "2.1.14"
   image_picker:
     dependency: "direct main"
     description:
@@ -533,14 +545,14 @@ packages:
       name: matcher
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.12.6"
+    version: "0.12.9"
   meta:
     dependency: transitive
     description:
       name: meta
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.1.8"
+    version: "1.3.0-nullsafety"
   mime:
     dependency: transitive
     description:
@@ -673,7 +685,7 @@ packages:
       name: petitparser
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "2.4.0"
+    version: "3.1.0"
   pin_code_fields:
     dependency: "direct main"
     description:
@@ -853,7 +865,7 @@ packages:
       name: stack_trace
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.9.3"
+    version: "1.9.5"
   stream_channel:
     dependency: transitive
     description:
@@ -895,7 +907,11 @@ packages:
       name: test_api
       url: "https://pub.dartlang.org"
     source: hosted
+<<<<<<< HEAD
     version: "0.2.16"
+=======
+    version: "0.2.18"
+>>>>>>> 992b36d703de62dc8805936dba2ecfc148e39776
   timing:
     dependency: transitive
     description:
@@ -909,7 +925,7 @@ packages:
       name: typed_data
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.1.6"
+    version: "1.3.0-nullsafety"
   url_launcher:
     dependency: "direct main"
     description:
@@ -958,7 +974,7 @@ packages:
       name: vector_math
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "2.0.8"
+    version: "2.1.0-nullsafety"
   watcher:
     dependency: transitive
     description:
@@ -993,7 +1009,7 @@ packages:
       name: xml
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "3.6.1"
+    version: "4.3.0"
   yaml:
     dependency: transitive
     description:
@@ -1002,5 +1018,5 @@ packages:
     source: hosted
     version: "2.2.1"
 sdks:
-  dart: ">=2.8.0 <3.0.0"
-  flutter: ">=1.16.0 <2.0.0"
+  dart: ">=2.9.0-18.0 <2.9.0"
+  flutter: ">=1.18.0-6.0.pre <2.0.0"
