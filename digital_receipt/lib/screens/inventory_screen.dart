@@ -4,8 +4,10 @@ import 'package:digital_receipt/screens/create_inventory_screen.dart';
 import 'package:digital_receipt/screens/update_inventory_screen.dart';
 import 'package:digital_receipt/services/api_service.dart';
 import 'package:digital_receipt/utils/receipt_util.dart';
+import 'package:digital_receipt/widgets/app_card.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
+import '../services/shared_preference_service.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -14,62 +16,55 @@ class InventoryScreen extends StatefulWidget {
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
-  List<Inventory> inventory;
+  List<Inventory> inventory = [];
 
-  List<Inventory> inventoryData;
+  Future inventFuture;
+  List<Inventory> inventoryData = [];
 
-  List<String> inventoryCategories;
+  List<String> inventoryCategories = [];
   String dropdownValue = "ALL";
   ApiService _apiService = ApiService();
+  String currency;
 
   @override
   void initState() {
-    //getInventory();
+    inventFuture = _apiService.getAllInventories();
+    setCategory();
     super.initState();
+  }
+
+  setCategory() async {
+    currency = await SharedPreferenceService().getStringValuesSF('Currency');
+    List<Inventory> val = await inventFuture;
+    List<String> temp = [];
+    await Future.forEach(val, (Inventory e) {
+      temp.add(e.category);
+    });
+
+    setState(() {
+      inventoryCategories = temp.toSet().toList();
+      inventory = val;
+      inventoryData = val;
+    });
   }
 
   @override
   void didChangeDependencies() {
-    getInventory();
-    super.didChangeDependencies();
-  }
-
-  getInventory() async {
-    await _apiService.getAllInventories().then((value) {
-      print('value of resp : $value');
-      setState(() {
-        inventoryData = value;
-        inventory = inventoryData..shuffle();
-      });
-      List<String> tempList = [];
-      inventory.forEach((element) {
-        print(element.category);
-        tempList.add(element.category);
-      });
-      inventoryCategories = tempList.toSet().toList();
-      print(inventory);
-      print(inventoryCategories);
+    print('object');
+    inventFuture = Future.delayed(Duration(seconds: 2), () async {
+      var res = await _apiService.getAllInventories();
+      return res;
     });
+    //getInventory();
+    super.didChangeDependencies();
   }
 
   bool loading = false;
 
   @override
   Widget build(BuildContext context) {
-    print(inventory);
-    if (inventory == null) {
-      return Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-          ),
-        ),
-      );
-    } else {
-      return Scaffold(
-        backgroundColor: Color(0xFFF2F8FF),
+    return Scaffold(
         appBar: AppBar(
-          backgroundColor: Color(0xFF0B57A7),
           title: Text(
             'Inventory',
             style: TextStyle(
@@ -84,14 +79,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
         floatingActionButton: SafeArea(
           child: FloatingActionButton(
             onPressed: () async {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => CreateInventory()));
+              var data = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => CreateInventory(),
+                ),
+              );
+              setState(() {
+                inventFuture = Future.delayed(Duration(seconds: 2), () async {
+                  var res = await _apiService.getAllInventories();
+                  return res;
+                });
+              });
+              setCategory();
+              print("Data from pop $data");
             },
             child: Icon(
               Icons.add,
-              color: Colors.white,
             ),
-            backgroundColor: kPrimaryColor,
+            backgroundColor: Theme.of(context).primaryColor,
           ),
         ),
         body: Padding(
@@ -137,14 +142,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           if (value != "ALL") {
                             setState(() {
                               dropdownValue = value;
+                              print(inventory);
                             });
                             inventory = sortInventoryByCategory(inventoryData,
                                 category: value);
+                            print(inventory.length);
                           } else {
                             setState(() {
                               dropdownValue = value;
+                              inventory = inventoryData..shuffle();
                             });
-                            inventory = inventoryData..shuffle();
                           }
                         },
                       ),
@@ -158,16 +165,61 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   children: <Widget>[
                     SizedBox(height: 20.0),
                     Flexible(
-                      child: ListView.builder(
-                        itemCount: inventory.length,
-                        itemBuilder: (context, index) {
-                          return GestureDetector(
-                              onLongPress: () async {
-                                 await _confirmInventoryDelete(
-                                     inventory[index].id,
-                                    inventory[index].title);  },
-                                    child: _buildInventory(inventory[index], index)
-                              );
+                      child: FutureBuilder(
+                        future: inventFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                              ),
+                            );
+                          } else if (snapshot.connectionState ==
+                                  ConnectionState.done &&
+                              snapshot.hasData &&
+                              snapshot.data != []) {
+                            //setCategory(snapshot.data);
+                            return ListView.builder(
+                              itemCount: inventory.length ?? 0,
+                              itemBuilder: (context, index) {
+                                return GestureDetector(
+                                    onLongPress: () async {
+                                      await _confirmInventoryDelete(
+                                          inventory[index].id,
+                                          inventory[index].title);
+                                    },
+                                    child: _buildInventory(
+                                        inventory[index], index));
+                              },
+                            );
+                          } else {
+                            return Container(
+                              padding: EdgeInsets.symmetric(horizontal: 20),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  SizedBox(
+                                    child: kBrokenHeart,
+                                    height: 170,
+                                  ),
+                                  SizedBox(
+                                    height: 20,
+                                  ),
+                                  Center(
+                                    child: Text(
+                                      "There is no inventory created!",
+                                      textAlign: TextAlign.center,
+                                      style:   Theme.of(context).textTheme.headline6,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    height: 30,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
                         },
                       ),
                     ),
@@ -176,200 +228,100 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
             ],
           ),
-        ),
-      );
-    }
+        ));
   }
 
   Widget _buildInventory(Inventory inventory, int index) {
+    Widget _buildColumnText(
+        {final String label,
+        final String currency,
+        final String value,
+        final int flex}) {
+      return Expanded(
+        flex: flex,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              label,
+              style:
+                  Theme.of(context).textTheme.subtitle2.copyWith(fontSize: 13),
+            ),
+            SizedBox(
+              height: 6,
+            ),
+            Text(
+              label == 'UNIT PRICE' ? '$currency$value' : '$value',
+            ),
+          ],
+        ),
+      );
+    }
+
     return GestureDetector(
-         onTap: () => Navigator.push(
+        onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => UpdateInventory(
                   inventory: inventory,
                 ),
               ),
-            ), 
+            ),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 15),
           child: Column(
             children: <Widget>[
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Color(0xff539C30),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Container(
-                  margin: EdgeInsets.only(left: 5.0),
-                  decoration: BoxDecoration(
-                    color: Color(0xffE8F1FB),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 10.0, vertical: 15.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          inventory.title,
-                          style: TextStyle(
-                            color: Color.fromRGBO(0, 0, 0, 0.87),
-                            fontFamily: 'Montserrat',
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.3,
-                            fontSize: 16,
-                            //color: Colors.white,
+              AppCard(
+                child: Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.0, vertical: 15.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(inventory.title,
+                          style: Theme.of(context).textTheme.headline6),
+                      SizedBox(
+                        height: 14,
+                      ),
+                      Row(
+                        children: <Widget>[
+                          _buildColumnText(
+                            label: "UNIT PRICE",
+                            currency: currency,
+                            value: inventory.unitPrice.toString(),
+                            flex: 3,
                           ),
-                        ),
-                        SizedBox(
-                          height: 14,
-                        ),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    "UNIT PRICE",
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w300,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: 6,
-                                  ),
-                                  Text(
-                                    inventory.unitPrice.toString(),
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    "QTY",
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w300,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: 6,
-                                  ),
-                                  Text(
-                                    '${(inventory.quantity).toString()}',
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    "DISCOUNT",
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w300,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: 6,
-                                  ),
-                                  Text(
-                                    (inventory.discount).toString() + "%",
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    "TAX",
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w300,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: 6,
-                                  ),
-                                  Text(
-                                    (inventory.tax).toString(),
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(0, 0, 0, 0.87),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Montserrat',
-                                      letterSpacing: 0.03,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          _buildColumnText(
+                            label: "QTY",
+                            value: inventory.quantity.toString(),
+                            flex: 2,
+                          ),
+                          _buildColumnText(
+                            label: "DISCOUNT",
+                            value: (inventory.discount).toString() + "%",
+                            flex: 3,
+                          ),
+                          _buildColumnText(
+                            label: "TAX",
+                            value: inventory.tax.toString(),
+                            flex: 2,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
               SizedBox(
                 height: 5,
               ),
-               index == 0
+              index == 0
                   ? Text(
-                      //'Tap to update, Longpress to delete inventory',
-                      'Longpress to delete inventory',
+                      'Tap to update, Longpress to delete inventory',
+                      //'Longpress to delete inventory',
                       textAlign: TextAlign.center,
                     )
-                  : SizedBox.shrink(), 
+                  : SizedBox.shrink(),
             ],
           ),
         ));
@@ -429,20 +381,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         setState(() {
                           loading = false;
                         });
-                        Navigator.push(
+                        Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => InventoryScreen()));
+                                builder: (_) => InventoryScreen()),
+                            (route) => false);
+                        // OR
+                        // Navigator.pop(context, true);
                         Fluttertoast.showToast(msg: 'an error occured');
                       } else {
                         setState(() {
                           loading = false;
                         });
-                        Navigator.push(
+                        Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => InventoryScreen()));
-                                Fluttertoast.showToast(msg: 'item deleted');
+                                builder: (_) => InventoryScreen()),
+                            (route) => false);
+                        // OR
+                        // Navigator.pop(context, true);
+                        Fluttertoast.showToast(msg: 'item deleted');
                         print('successful');
                       }
                     },

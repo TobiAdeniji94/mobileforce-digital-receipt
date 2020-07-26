@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:async';
 import 'package:device_preview/device_preview.dart';
 import 'package:digital_receipt/models/customer.dart';
 import 'package:digital_receipt/models/inventory.dart';
@@ -8,15 +10,19 @@ import 'package:digital_receipt/screens/setup.dart';
 import 'package:digital_receipt/services/api_service.dart';
 import 'package:digital_receipt/services/hiveDb.dart';
 import 'package:digital_receipt/services/notification.dart';
+import 'package:digital_receipt/utils/check_login.dart';
+import 'package:digital_receipt/utils/theme_manager.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
+import 'package:theme_provider/theme_provider.dart';
 import 'dart:io';
 import 'screens/second_screen.dart';
 import 'utils/connected.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:overlay_support/overlay_support.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'models/notification.dart';
@@ -29,35 +35,6 @@ import 'package:path_provider/path_provider.dart';
 
 AppNotification _appNotification = AppNotification();
 
-//BACKGROUND MESSAGE HANDLER
-Future<dynamic> myBackgroundMessageHandler(Map<String, dynamic> message) async {
-  if (message.containsKey('data')) {
-    // Handle data message
-    final dynamic data = message['data'];
-    SqlDbClient sqlDbClient = SqlDbClient();
-    SqlDbRepository _sqlDbRepository =
-        SqlDbRepository(sqlDbClient: sqlDbClient);
-    print(message['data']["click_action"]);
-    //INSERTING NOTIFICATION TO SQFLITE DB
-    NotificationModel notification = NotificationModel(
-      id: message["data"]["id"],
-      title: message['data']['title'],
-      message: message['data']['message'],
-      date: message["data"]["date"],
-      isRead: message["data"]["isRead"],
-    );
-    await _sqlDbRepository.insertNotification(notification);
-    //INSERTING NOTIFICATION TO SQFLITE DB
-  }
-
-  if (message.containsKey('notification')) {
-    // Handle notification message
-    // final dynamic notification = message['notification'];
-    // print(notification);
-
-  }
-}
-
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
@@ -67,11 +44,14 @@ void main() async {
 
     // runApp(MyApp(),);
     runApp(
-      /* DevicePreview(
-      builder: (BuildContext context) => */
+      // DevicePreview(
+      // builder: (BuildContext context) =>
+      // */
       MyApp(),
-      /* enabled: kReleaseMode,
+      // enabled: kReleaseMode,
+      /* 
     ) */
+      // )
     );
   } catch (e) {
     print("error occurd in main: $e");
@@ -88,8 +68,22 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  void initState() {
+    _requestIOSPermissions();
+    _configureDidReceiveLocalNotificationSubject();
+    _configureSelectNotificationSubject();
+    super.initState();
+  }
 
-   void _requestIOSPermissions() {
+  /*  @override
+  void didChangeDependencies() {
+    print('didChangeDependencies');
+    checkLogin.dispose();
+    isLogin();
+    super.didChangeDependencies();
+  } */
+
+  void _requestIOSPermissions() {
     flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>()
@@ -144,62 +138,52 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return OverlaySupport(
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider(
-            create: (context) => Business(),
-          ),
-          ChangeNotifierProvider(
-            create: (context) => HiveDb(),
-          ),
-          ChangeNotifierProvider(
-            create: (context) => Receipt(),
-          ),
-          ChangeNotifierProvider(
-            create: (context) => Customer(),
-          ),
-          ChangeNotifierProvider(
-            create: (context) => Inventory(),
-          ),
-          ChangeNotifierProvider(
-            create: (context) => Connected(),
-          ),
-        ],
-        child: MaterialApp(
-          title: 'Degeit',
-          theme: ThemeData(
-            primaryColor: Color(0xFF0B57A7),
-            scaffoldBackgroundColor: Color(0xFFF2F8FF),
-            accentColor: Color(0xFF25CCB3),
-            appBarTheme: AppBarTheme(
-                textTheme: TextTheme(
-              headline6: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Montserrat',
-                letterSpacing: 0.03,
-              ),
-            )),
-            textTheme: TextTheme(
-              bodyText1: TextStyle(
-                fontFamily: 'Montserrat',
-              ),
-              headline6: TextStyle(
-                fontFamily: 'Montserrat',
-              ),
-              bodyText2: TextStyle(
-                fontFamily: 'Montserrat',
-              ),
-              button: TextStyle(
-                fontFamily: 'Montserrat',
-              ),
+
+    return MultiProvider(
+
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => Business(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => HiveDb(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => Receipt(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => Customer(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => Inventory(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => Connected(),
+        ),
+      ],
+      child: ThemeProvider(
+        child: ThemeConsumer(
+          child: Builder(
+            builder: (themeContext) => MaterialApp(
+              title: 'Degeit',
+              theme: ThemeProvider.themeOf(themeContext).data,
+              debugShowCheckedModeBanner: false,
+              home: ScreenController(),
             ),
           ),
+<<<<<<< HEAD
           debugShowCheckedModeBanner: false,
           home: HomePage(),
+=======
+>>>>>>> 31ac62768aaf319e6e17773cb7dde14404903de6
         ),
+        themes: [ThemeManager.light(), ThemeManager.dark()],
+        saveThemesOnChange: true,
+        // Please do not change anything on this Callback
+        onInitCallback: ThemeManager.onInitCallback,
       ),
+      
+    
     );
   }
 }
@@ -240,15 +224,16 @@ class _ScreenControllerState extends State<ScreenController> {
     }
   }
 
-  initConnect() async {
-    Provider.of<Connected>(context, listen: false).init();
-    Provider.of<Connected>(context, listen: false).stream.listen((event) {
-      print(event);
-    });
+  setVerson(){
+    var _version = '2';
+    _sharedPreferenceService.addStringToSF("VERSION", _version);
   }
+
+
 
   @override
   void initState() {
+    setVerson();
     super.initState();
     // initConnect();
 
@@ -257,48 +242,21 @@ class _ScreenControllerState extends State<ScreenController> {
 
     final FirebaseMessaging _fcm = FirebaseMessaging();
 
+//_fcm.setAutoInitEnabled(enabled)
+
     if (Platform.isIOS) {
       _fcm.requestNotificationPermissions(IosNotificationSettings());
     }
 
     _fcm.configure(
       onMessage: (Map<String, dynamic> message) async {
-        print(message["data"]["id"]);
+        print(message['notification']['message']);
         print(message["notification"]["id"]);
         print("onMessage: $message");
-        showOverlayNotification((context) {
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            child: SafeArea(
-              child: ListTile(
-                leading: SizedBox.fromSize(
-                    size: const Size(40, 40),
-                    child: ClipOval(
-                        child: Container(
-                      color: Colors.black,
-                    ))),
-                title: Text('${message['notification']['title']}'),
-                subtitle: Text('${message['notification']['message']}'),
-                trailing: IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () {
-                      OverlaySupportEntry.of(context).dismiss();
-                    }),
-              ),
-            ),
-          );
-        }, duration: Duration(hours: 1));
-
-        //INSERTING NOTIFICATION TO SQFLITE DB
-        NotificationModel notification = NotificationModel(
-          id: message["data"]["id"],
+        appNotification.showNotification(
           title: message['notification']['title'],
-          message: message['notification']['message'],
-          date: message["data"]["date"],
-          isRead: message["data"]["isRead"],
+          body: message['notification']['body'],
         );
-        await _sqlDbRepository.insertNotification(notification);
-        //INSERTING NOTIFICATION TO SQFLITE DB
       },
       onLaunch: (Map<String, dynamic> message) async {
         print("onLaunch: $message");

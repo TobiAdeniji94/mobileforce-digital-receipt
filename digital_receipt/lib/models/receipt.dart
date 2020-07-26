@@ -47,7 +47,7 @@ class Receipt extends ChangeNotifier {
   DateTime reminderDate;
   num total;
   String tempReceipt;
-  Currency currency;
+  String currency;
 
   String get descriptions {
     var desc = new StringBuffer();
@@ -73,11 +73,19 @@ class Receipt extends ChangeNotifier {
     this.currency,
     this.sellerName,
   });
-  static String _urlEndpoint = 'http://degeitreceipt.pythonanywhere.com/v1';
+  static String _urlEndpoint = kReleaseMode
+      ? "http://degeitreceipt.pythonanywhere.com/v1"
+      : "http://degeittest.pythonanywhere.com/v1";
 
   factory Receipt.fromJson(Map<String, dynamic> json) {
     ReceiptCategory convertToEnum({@required string}) {
-      return ReceiptCategory.values.firstWhere((e) => e.toString() == string);
+      // print(string.runtimeType);
+      if (string.runtimeType != ReceiptCategory) {
+        return ReceiptCategory.values.firstWhere((e) => e.toString() == string,
+            orElse: () {
+          return ReceiptCategory.OTHERS;
+        });
+      }
     }
 
     return Receipt(
@@ -131,7 +139,7 @@ class Receipt extends ChangeNotifier {
     return total;
   }
 
-  Currency getCurrency() {
+  String getCurrency() {
     return currency;
   }
 
@@ -150,7 +158,7 @@ class Receipt extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setCurrency(Currency currency) {
+  void setCurrency(String currency) {
     this.currency = currency;
     notifyListeners();
   }
@@ -231,12 +239,11 @@ class Receipt extends ChangeNotifier {
     return this.partPaymentDateTime = d;
   }
 
-  Map<String, dynamic> toJson() => {
+  Future<Map<String, dynamic>> toJson() async => {
         "customer": {
           "name": customer.name,
           "email": customer.email,
           "address": customer.address,
-          
           "phoneNumber": customer.phoneNumber,
           "saved": saveCustomer,
         },
@@ -252,13 +259,14 @@ class Receipt extends ChangeNotifier {
           "sellerName": sellerName,
           "partPayment": partPayment,
           "partPaymentDateTime": convertToDateTime(),
-          "currency": currencyToJson(currency) ?? '₦'
+          "currency":
+              await SharedPreferenceService().getStringValuesSF('Currency')
         },
         "products": products,
       };
 
-  void showJson() {
-    print(json.encode(toJson()));
+  void showJson() async {
+    print(json.encode(await toJson()));
   }
 
   String currencyToJson(Currency currency) {
@@ -271,7 +279,7 @@ class Receipt extends ChangeNotifier {
     return json.encode(val);
   }
 
-  Currency currencyFromJson(String val) {
+  /* Currency currencyFromJson(String val) {
     var json = jsonDecode(val);
     return Currency(
       currencyName: json['name'],
@@ -279,7 +287,7 @@ class Receipt extends ChangeNotifier {
       flag: json['flag'].toString(),
       id: json['id'],
     );
-  }
+  } */
 
   Future updatedReceipt(String receiptId) async {
     print(receiptId);
@@ -298,12 +306,12 @@ class Receipt extends ChangeNotifier {
   saveReceipt() async {
     var uri = "$_urlEndpoint/business/receipt/customize";
     var token = await _sharedPreferenceService.getStringValuesSF("AUTH_TOKEN");
-    print(toJson());
+    print(json.encode(await toJson()));
 
     try {
       var response = await http.post(
         uri,
-        body: json.encode(toJson()),
+        body: json.encode(await toJson()),
         headers: {"token": token, "Content-Type": "application/json"},
       );
 
