@@ -54,7 +54,7 @@ class MainDrawer extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                                 //TODO: Change this back to UpgradeScreen()
-                                builder: (context) => Setup()));
+                                builder: (context) => AccountPage()));
                       },
                       child: Row(
                         children: <Widget>[
@@ -136,7 +136,7 @@ class MainDrawer extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(
+/*                   SizedBox(
                     height: 50.0,
                     width: double.maxFinite,
                     child: FlatButton(
@@ -220,7 +220,7 @@ class MainDrawer extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(
+                 */  SizedBox(
                     height: 50.0,
                     width: double.maxFinite,
                     child: FlatButton(

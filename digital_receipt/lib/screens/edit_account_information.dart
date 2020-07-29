@@ -1,13 +1,13 @@
 import 'package:digital_receipt/screens/no_internet_connection.dart';
+import 'package:digital_receipt/screens/signature_screen.dart';
 import 'package:digital_receipt/services/api_service.dart';
 import 'package:digital_receipt/utils/connected.dart';
 import 'package:digital_receipt/widgets/app_solid_button.dart';
 import 'package:digital_receipt/widgets/app_text_form_field.dart';
-import 'package:digital_receipt/widgets/button_loading_indicator.dart';
+import 'package:digital_receipt/widgets/signature_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 import 'package:provider/provider.dart';
 import '../providers/business.dart';
 import '../models/account.dart';
@@ -150,7 +150,32 @@ class _EditAccountInfoFormState extends State<EditAccountInfoForm> {
             label: 'Business slogan (optional)',
             onSaved: (String value) => slogan = value,
           ),
-          SizedBox(height: 100),
+          SizedBox(
+            height: 10,
+          ),
+         /*  RawMaterialButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => SignatureDialog(),
+              );
+            },
+            highlightColor: Colors.transparent,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Text(
+                  'Change Signature',
+                  style: Theme.of(context).textTheme.headline6.copyWith(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w400,
+                      ),
+                ),
+                Icon(Icons.keyboard_arrow_right)
+              ],
+            ),
+          ),
+           */SizedBox(height: 100),
           AppSolidButton(
             isLoading: loading,
             text: 'Update',

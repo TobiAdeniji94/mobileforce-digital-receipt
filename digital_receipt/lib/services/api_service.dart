@@ -221,11 +221,13 @@ class ApiService {
           List temp = res.getRange(0, 99).toList();
           await hiveDb.addDraft(temp);
 
-          return hiveDb.getDraft();
+          // return hiveDb.getDraft();
+          return res;
         } else if (res.length < 100 && connectivityResult) {
           await hiveDb.addDraft(res);
 
           return hiveDb.getDraft();
+          //return res;
         } else {
           print('res: 9');
           return hiveDb.getDraft();
@@ -266,15 +268,19 @@ class ApiService {
 
       if (response.statusCode == 200) {
         //print(response.data["data"][14]);
-
-        if (response.data["data"].length >= 100) {
+        var res = response.data["data"];
+        if (res.length >= 100) {
           List temp = response.data["data"].getRange(0, 99).toList();
           await hiveDb.addReceiptHistory(temp);
-          return hiveDb.getReceiptHistory();
+
+          res = res.map((e) {
+            Receipt temp = Receipt.fromJson(e);
+            return temp;
+          });
+          return List<Receipt>.from(res);
         } else if (response.data["data"].length < 100) {
-          //print('we::: ${response.data["data"][14]}');
           await hiveDb.addReceiptHistory(response.data["data"]);
-          //await hiveDb.getReceiptHistory();
+
           return hiveDb.getReceiptHistory();
         } else {
           return hiveDb.getReceiptHistory();
@@ -326,6 +332,7 @@ class ApiService {
         _sharedPreferenceService.addStringToSF("USER_ID", null);
         _sharedPreferenceService.addStringToSF('BUSINESS_INFO', null);
         _sharedPreferenceService.addStringToSF("REGISTRATION_ID", null);
+        _sharedPreferenceService.addStringToSF("ISSUER_SIGNATURE", null);
         print('done');
 
         return true;
@@ -365,8 +372,6 @@ class ApiService {
           uri,
           headers: <String, String>{
             "token": token,
-            // HttpHeaders.contentTypeHeader: 'application/json',
-            // HttpHeaders.acceptHeader: 'application/json',
           },
           body: {
             "phone_number": phoneNumber,
@@ -428,6 +433,48 @@ class ApiService {
     }
   }
 
+  Future updateSignature(String signature) async {
+    var connectivityResult = await Connected().checkInternet();
+    if (connectivityResult) {
+      var uri = '$_urlEndpoint/business/info/update';
+      String token =
+          await _sharedPreferenceService.getStringValuesSF('AUTH_TOKEN');
+      String businessId =
+          await _sharedPreferenceService.getStringValuesSF('Business_ID');
+      print(businessId);
+
+      print(
+        """
+     signature: $signature
+      """,
+      );
+
+      try {
+        var response = await http.put(
+          uri,
+          headers: <String, String>{
+            "token": token,
+          },
+          body: {
+            "signature": signature,
+            "businessId": businessId,
+          },
+        );
+        print(jsonDecode(response.body));
+        //print(response.body);
+        if (response.statusCode == 200) {
+          print(jsonDecode(response.body));
+          return jsonDecode(response.body);
+        }
+        return null;
+      } catch (e) {
+        throw (e);
+      }
+    } else {
+      return null;
+    }
+  }
+
   Future<bool> setUpBusiness({
     String token,
     String phoneNumber,
@@ -435,6 +482,8 @@ class ApiService {
     String address,
     String slogan,
     String logo,
+    String signature,
+    String currency,
   }) async {
     var connectivityResult = await Connected().checkInternet();
     if (connectivityResult) {
@@ -447,6 +496,12 @@ class ApiService {
       if (slogan != null) {
         request.fields['slogan'] = slogan;
       }
+      if (signature != null) {
+        request.fields['signature'] = signature;
+      }
+      if (currency != null) {
+        request.fields['currency'] = currency;
+      }
 
       request.headers['token'] = token;
       if (logo != null) {
@@ -456,15 +511,15 @@ class ApiService {
       }
 
       var response = await request.send();
-      print('code: ${response.statusCode}');
       var res = await response.stream.bytesToString();
-      // print(res);
+      print(res);
       if (response.statusCode == 200) {
         var businessId = jsonDecode(res)['id'];
         //set the token to null
         print('iddddd: $businessId');
         await _sharedPreferenceService.addStringToSF('Business_ID', businessId);
         await _sharedPreferenceService.addStringToSF('LOGO', logo);
+
         return true;
       }
       return false;
@@ -599,9 +654,51 @@ class ApiService {
     }
   }
 
+  Future uploadSignature(String signature, String receiptId) async {
+    var connectivityResult = await Connected().checkInternet();
+    if (connectivityResult) {
+      var uri = '$_urlEndpoint/business/receipt/upload/signature';
+      String token =
+          await _sharedPreferenceService.getStringValuesSF('AUTH_TOKEN');
+      String businessId =
+          await _sharedPreferenceService.getStringValuesSF('Business_ID');
+      print(businessId);
+
+      print(
+        """
+     signature: $signature
+      """,
+      );
+
+      try {
+        var response = await http.put(
+          uri,
+          headers: <String, String>{
+            "token": token,
+          },
+          body: {
+            "signature": signature,
+            "receiptId": receiptId,
+          },
+        );
+        print(jsonDecode(response.body));
+
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body);
+        }
+        return null;
+      } catch (e) {
+        throw (e);
+      }
+    } else {
+      return null;
+    }
+  }
+
   //Fetch users from db;
   Future<AccountData> fetchAndSetUser() async {
-    var url = "$_urlEndpoint/business/info/all";
+    print('innn');
+    var url = "$_urlEndpoint/business/user/all";
 
     String token =
         await _sharedPreferenceService.getStringValuesSF('AUTH_TOKEN');
@@ -623,20 +720,29 @@ class ApiService {
         },
       );
 
-      dynamic res = jsonDecode(response.body);
+      dynamic res;
 
-      res = res['data'] as List;
+      if (response != null &&
+          response.statusCode == 200 &&
+          jsonDecode(response.body)['data'].runtimeType != String) {
+        dynamic res = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
-        print(response.statusCode);
+        print('jhjhjre: ${jsonDecode(response.body)['data'].runtimeType}');
+        res = res['data'] as List;
+
         res = res.firstWhere(
           (e) => e['user'].toString() == userID,
           orElse: () {
             print('object');
           },
         );
-
         if (res != null) {
+          await _sharedPreferenceService.addStringToSF(
+              'ISSUER_SIGNATURE', res['signature']);
+
+          await _sharedPreferenceService.addStringToSF(
+              'Currency', res['currency']);
+
           await _sharedPreferenceService.addStringToSF(
               'Business_ID', res['id']);
           return AccountData(
@@ -651,32 +757,11 @@ class ApiService {
             email: email,
           );
         } else {
-          var result =
-              await _sharedPreferenceService.getStringValuesSF('BUSINESS_INFO');
-          var res = jsonDecode(result);
-          return AccountData(
-            id: res['id'] ?? '',
-            name: res['name'] ?? '',
-            phone: res['phone'] ?? '',
-            address: res['address'] ?? '',
-            slogan: res['slogan'] ?? '',
-            logo: 'https://degeit-receipt.herokuapp.com${res['logo']}' ?? '',
-            email: email,
-          );
+          print(jsonDecode(response.body));
+          return null;
         }
       } else {
-        var result =
-            await _sharedPreferenceService.getStringValuesSF('BUSINESS_INFO');
-        var res = jsonDecode(result);
-        return AccountData(
-          id: res['id'] ?? '',
-          name: res['name'] ?? '',
-          phone: res['phone'] ?? '',
-          address: res['address'] ?? '',
-          slogan: res['slogan'] ?? '',
-          logo: 'https://degeit-receipt.herokuapp.com${res['logo']}' ?? '',
-          email: email,
-        );
+        return null;
       }
     } else {
       var result =
@@ -801,18 +886,13 @@ class ApiService {
         );
         if (response.statusCode == 200) {
           var data = jsonDecode(response.body);
-          // data["data"].forEach((notification) {
-          //   _allNotifications.add(NotificationModel.fromJson(notification));
-          // });
-          // return _allNotifications;
-          // checks if the length of history is larger than 100 and checks for internet
-          // print("notifications from api ${data['data']}");
 
-          if (data["data"].length >= 100) {
+          var res = data["data"];
+          if (res.length >= 100) {
             List temp = data["data"].getRange(0, 99).toList();
             await hiveDb.addNotification(temp);
 
-            return hiveDb.getNotification();
+            return res;
           } else if (data["data"].length < 100) {
             await hiveDb.addNotification(data["data"]);
 
@@ -822,12 +902,11 @@ class ApiService {
           }
         } else {
           print("All notifications status code ${response.statusCode}");
-          // return [];
+          return null;
         }
       }
     } else {
-      return hiveDb.getCustomer() ?? Future.error('No network Connection');
-      ;
+      return hiveDb.getNotification() ?? Future.error('No network Connection');
     }
   }
 
@@ -857,14 +936,17 @@ class ApiService {
             List temp = res.getRange(0, 99).toList();
             await hiveDb.addCustomer(temp);
 
-            return hiveDb.getCustomer();
+            // return hiveDb.getCustomer();
+            return res;
           } else if (res.length < 100) {
             await hiveDb.addCustomer(res);
 
             return hiveDb.getCustomer();
+            //return res;
           } else {
             print('res: 9');
             return hiveDb.getCustomer();
+            //return res;
           }
         } else {
           var res = jsonDecode(response.body)['data'];
@@ -876,33 +958,12 @@ class ApiService {
     }
   }
 
-  Future getCurrency() async {
-    dynamic res = await http.get('https://restcountries.eu/rest/v2/all');
-
-    if (res.statusCode == 200) {
-      res = json.decode(res.body);
-      List val = res
-          .map(
-            (e) => Currency(
-              currencyName: e['currencies'][0]['name'].toString(),
-              currencySymbol: e['currencies'][0]['symbol'].toString(),
-              flag: e['flag'].toString(),
-            ),
-          )
-          .toList();
-      print(val.length);
-      return List<Currency>.from(val);
-    }
-  }
-
   Future getAllInventories() async {
     var connectivityResult = await Connected().checkInternet();
     if (connectivityResult) {
       var uri = "$_urlEndpoint/business/inventory/all";
       String token =
           await _sharedPreferenceService.getStringValuesSF('AUTH_TOKEN');
-
-      List<Inventory> _inventories = [];
 
       var connectivityResult = await Connected().checkInternet();
       if (connectivityResult) {
@@ -915,12 +976,17 @@ class ApiService {
         if (response.statusCode == 200) {
           log(response.body);
           var data = jsonDecode(response.body)['data'];
-          /////
+
           if (data.length >= 100) {
             List temp = data.getRange(0, 99).toList();
             await hiveDb.addInventory(temp);
 
-            return hiveDb.getInventory();
+            List res = data.map((e) {
+              Inventory temp = Inventory.fromJson(e);
+              return temp;
+            }).toList();
+            print('data: $res');
+            return res;
           } else if (data.length < 100) {
             await hiveDb.addInventory(data);
 
@@ -929,21 +995,9 @@ class ApiService {
             print('res: 9');
             return hiveDb.getInventory();
           }
-          print('data: $data');
-          try {
-            //log(response.body);
-            data.forEach((inventory) {
-              _inventories.add(Inventory.fromJson(inventory));
-            });
-            log(_inventories.toString());
-          } catch (e) {
-            print(e);
-          }
-          print(_inventories);
-          return _inventories;
         } else {
           var res = jsonDecode(response.body)['data'];
-          return res;
+          return null;
         }
       }
     } else {
@@ -965,8 +1019,9 @@ class ApiService {
         var data = json.decode(res.body);
         print(data);
         await hiveDb.addDashboardInfo(data);
-        var val = await hiveDb.getDashboardInfo();
-        return val;
+        // var val = await hiveDb.getDashboardInfo();
+        // return val;
+        return data;
       } else {
         return null;
       }
@@ -1228,13 +1283,14 @@ class ApiService {
       }
       return null;
     } else {
-      return 'false';
+      return null;
     }
   }
 
   Future<List<Reminder>> getReminders() async {
     String token =
         await _sharedPreferenceService.getStringValuesSF('AUTH_TOKEN');
+    print("token: $token");
     String url = '$_urlEndpoint/business/receipt/issued';
 
     final http.Response res = await http.get(url, headers: <String, String>{
@@ -1243,10 +1299,36 @@ class ApiService {
     print(res.statusCode);
     if (res.statusCode == 200) {
       var responseData = json.decode(res.body);
+      print("Reminder data");
       print(responseData['data']);
       return formatReminderResponse(responseData);
     } else {
       return null;
+    }
+  }
+
+  updatePartPaymentReminder({
+    String id,
+    String date,
+    String time,
+  }) async {
+    var connectivityResult = await Connected().checkInternet();
+    if (connectivityResult) {
+      var uri = '$_urlEndpoint/business/receipt/partpayment/$id';
+      String token =
+          await _sharedPreferenceService.getStringValuesSF('AUTH_TOKEN');
+      print(token);
+      var response = await http.put(
+        uri,
+        headers: {"token": token},
+      );
+      print(response.body);
+      if (response.statusCode == 200) {
+        return 'true';
+      }
+      return 'false';
+    } else {
+      return 'false';
     }
   }
 }

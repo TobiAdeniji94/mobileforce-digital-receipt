@@ -4,6 +4,7 @@ import 'package:digital_receipt/screens/home_page.dart';
 import 'package:digital_receipt/services/api_service.dart';
 import 'package:digital_receipt/services/shared_preference_service.dart';
 import 'package:digital_receipt/utils/connected.dart';
+import '../widgets/signature_dialog.dart';
 
 import 'package:digital_receipt/widgets/app_drop_selector.dart';
 
@@ -41,6 +42,7 @@ class _SetupState extends State<Setup> {
   bool isLoading = false;
   var status;
   String selectedCurrency;
+  String selectedCurrencySymbol;
 
   Future getImage() async {
     PermissionStatus status = await Permission.storage.status;
@@ -100,17 +102,10 @@ class _SetupState extends State<Setup> {
   Widget _buildCurrency(formLabel) {
     return Column(
       children: <Widget>[
-        Padding(padding: const EdgeInsets.all(8)),
         Container(
           alignment: Alignment.bottomLeft,
           child: Text(
             formLabel,
-            style: TextStyle(
-              fontFamily: 'Montserrat',
-              fontSize: 13.0,
-              color: Color.fromRGBO(0, 0, 0, 0.6),
-              fontWeight: FontWeight.normal,
-            ),
           ),
         ),
         SizedBox(
@@ -133,6 +128,7 @@ class _SetupState extends State<Setup> {
                         var currency =
                             format.simpleCurrencySymbol(country.currencyISO);
 
+                        selectedCurrencySymbol = currency;
                         print(format.simpleCurrencySymbol(country.currencyISO));
 
                         _sharedPreferenceService.addStringToSF(
@@ -242,11 +238,11 @@ class _SetupState extends State<Setup> {
                     ]),
 
                 SizedBox(
-                  height: 50,
-                ), //Spacing
+                  height: 35,
+                ),
 
                 Container(
-                  width: 450,
+                  width: double.infinity,
                   height: 50,
                   child: FlatButton(
                     onPressed: getImage,
@@ -261,9 +257,9 @@ class _SetupState extends State<Setup> {
                         Text(
                           _image == null ? 'Upload your logo' : "Logo uploaded",
                           style: TextStyle(
-                            fontWeight: FontWeight.w300,
-                            fontSize: 16.0,
-                          ),
+                              fontWeight: FontWeight.w300,
+                              fontSize: 16.0,
+                              fontFamily: 'Montserrat'),
                         ),
                         SizedBox(
                           width: 10,
@@ -275,11 +271,41 @@ class _SetupState extends State<Setup> {
                     ),
                   ),
                 ),
-                SizedBox(height: 10),
+                SizedBox(height: 15),
                 Text(
-                  'Your logo should be in PNG format and have\na max size of 3MB (Optional)',
+                  'Your logo should be in PNG format and have a max size of 3MB (Optional)',
                   textAlign: TextAlign.center,
                 ),
+                SizedBox(height: 15),
+                Container(
+                  width: double.infinity,
+                  height: 50,
+                  child: FlatButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => SignatureDialog(from: 'setup',),
+                      );
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      side: BorderSide(color: Color(0xFF25CCB3), width: 1.5),
+                    ),
+                    color: Color(0xFF25CCB3),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          'Upload your signature',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w300,
+                              fontSize: 16.0,
+                              fontFamily: 'Montserrat'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ), //Spacing
 
                 SizedBox(height: 45),
 
@@ -312,13 +338,15 @@ class _SetupState extends State<Setup> {
                       print(_image);
 
                       var result = await _apiService.setUpBusiness(
-                        token: token,
-                        phoneNumber: phoneNumber,
-                        name: businessName,
-                        address: address,
-                        slogan: slogan,
-                        logo: _image,
-                      );
+                          token: token,
+                          phoneNumber: phoneNumber,
+                          name: businessName,
+                          address: address,
+                          slogan: slogan,
+                          logo: _image,
+                          currency: selectedCurrencySymbol,
+                          signature: await _sharedPreferenceService
+                              .getStringValuesSF("ISSUER_SIGNATURE"));
 
                       if (result != null) {
                         setState(() {
@@ -326,19 +354,20 @@ class _SetupState extends State<Setup> {
                         });
                       }
                       if (result == true) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => HomePage(),
-                          ),
-                        );
+                        Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => HomePage(),
+                            ),
+                            (route) => false);
+
                         Fluttertoast.showToast(
                           msg: "Your business has successfully been set up",
                           toastLength: Toast.LENGTH_LONG,
                           gravity: ToastGravity.BOTTOM,
                           timeInSecForIosWeb: 1,
                           backgroundColor: Colors.green,
-                          textColor: Colors.black,
+                          textColor: Colors.white,
                           fontSize: 16.0,
                         );
                       } else {

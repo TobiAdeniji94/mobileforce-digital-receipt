@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-
+import 'setup.dart';
 import 'package:digital_receipt/models/account.dart';
-import 'package:digital_receipt/models/receipt.dart';
 import 'package:digital_receipt/providers/business.dart';
 import 'package:digital_receipt/screens/no_internet_connection.dart';
 import 'package:digital_receipt/services/api_service.dart';
@@ -12,12 +10,9 @@ import 'package:digital_receipt/utils/check_login.dart';
 import 'package:digital_receipt/utils/receipt_util.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_mailer/flutter_mailer.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:random_color/random_color.dart';
-import '../services/email_service.dart';
 import '../utils/connected.dart';
 import '../constant.dart';
 import 'login_screen.dart';
@@ -51,9 +46,9 @@ class _DashBoardState extends State<DashBoard> {
   @override
   void initState() {
     dashboardFuture = _apiService.getIssuedReceipt2();
+    callFetch();
     setCurrency();
     isLogin(context);
-    callFetch();
     super.initState();
   }
 
@@ -135,14 +130,22 @@ class _DashBoardState extends State<DashBoard> {
   }
 
   callFetch() async {
+    print('in');
     var business = Provider.of<Business>(context, listen: false);
     var res = await _apiService.fetchAndSetUser();
+    //print(res);
     if (res != null) {
       // print('res:::: ${res.phone}');
       business.setAccountData = res;
       var val = business.toJson();
       _sharedPreferenceService.addStringToSF('BUSINESS_INFO', jsonEncode(val));
       //print('val:: $val');
+    } else if (res == null) {
+      print(res);
+      Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (BuildContext context) => Setup()),
+          (route) => false);
     }
   }
 
@@ -228,14 +231,13 @@ class _DashBoardState extends State<DashBoard> {
                         Text(
                           'Nothing to see here. Click the plus icon to create a receipt',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color.fromRGBO(0, 0, 0, 0.6),
-                            fontSize: 16,
-                            letterSpacing: 0.03,
-                            fontWeight: FontWeight.normal,
-                            fontFamily: 'Montserrat',
-                            height: 1.43,
-                          ),
+                          style: Theme.of(context).textTheme.subtitle2.copyWith(
+                                fontSize: 16,
+                                letterSpacing: 0.03,
+                                fontWeight: FontWeight.normal,
+                                fontFamily: 'Montserrat',
+                                height: 1.43,
+                              ),
                         )
                       ],
                     ),
@@ -270,40 +272,48 @@ class _DashBoardState extends State<DashBoard> {
                     child: SingleChildScrollView(
                       child: Column(
                         children: <Widget>[
-                          buildGridView(recNo, deptIssued, amnt),
-                          Padding(
-                            padding:
-                                const EdgeInsets.only(top: 20.0, bottom: 15),
-                            child: FutureBuilder(
-                              future: _apiService.getPromotion(),
-                              builder: (BuildContext context,
-                                  AsyncSnapshot<dynamic> snapshot) {
-                                print(snapshot.data);
-                                if (snapshot.hasData) {
-                                  return GestureDetector(
-                                    onTap: () {
-                                      Fluttertoast.showToast(
-                                          msg: "app updated");
-                                    },
-                                    child: Container(
-                                      height: 100,
-                                      width: MediaQuery.of(context).size.width,
-                                      padding: EdgeInsets.all(10.0),
-                                      decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(5.0),
-                                          image: DecorationImage(
-                                              image: NetworkImage(
-                                                  snapshot.data['imageUrl']),
-                                              fit: BoxFit.cover)),
-                                    ),
-                                  );
-                                } else {
-                                  return SizedBox.shrink();
-                                }
-                              },
+                          SizedBox(
+                            width: double.infinity,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.only(top: 0.0, bottom: 15),
+                              child: FutureBuilder(
+                                future: _apiService.getPromotion(),
+                                builder: (BuildContext context,
+                                    AsyncSnapshot<dynamic> snapshot) {
+                                  print("snapshot data for dashboard");
+                                  print(snapshot.data);
+                                  if (snapshot.hasData) {
+                                    return GestureDetector(
+                                      onTap: () {
+                                        Fluttertoast.showToast(
+                                            msg: "app updated");
+                                      },
+                                      child: Container(
+                                        height: 100,
+                                        width:
+                                            MediaQuery.of(context).size.width,
+                                        padding: EdgeInsets.all(10.0),
+                                        decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(5.0),
+                                            image: DecorationImage(
+                                                image: NetworkImage(
+                                                    snapshot.data['imageUrl']),
+                                                fit: BoxFit.cover)),
+                                      ),
+                                    );
+                                  } else {
+                                    return SizedBox.shrink();
+                                  }
+                                },
+                              ),
                             ),
                           ),
+                          buildGridView(recNo, deptIssued, amnt),
+                          SizedBox(
+                            height: 20,
+                          )
                         ],
                       ),
                     ),
@@ -345,14 +355,14 @@ class _DashBoardState extends State<DashBoard> {
           subtitle: '$currency${Utils.formatNumber(amnt)}',
           color: _getRandomColor(),
         ),
-        FlatButton(
+       /*  FlatButton(
           onPressed: () async {
             //var t = DateTime.now().timeZoneName;
             print(await SharedPreferenceService()
                 .getStringValuesSF('AUTH_TOKEN'));
           },
           child: Text('Test'),
-        ),
+        ), */
       ],
     );
   }
@@ -363,7 +373,7 @@ class _DashBoardState extends State<DashBoard> {
       height: 130,
       padding: EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(7.0),
+        borderRadius: BorderRadius.circular(5.0),
         color: Theme.of(context).primaryColor,
       ),
       child: Row(
@@ -441,7 +451,7 @@ class _DashBoardState extends State<DashBoard> {
     return Container(
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(7.0),
+        borderRadius: BorderRadius.circular(5.0),
       ),
       child: Card(
         margin: EdgeInsets.only(left: 5.0),

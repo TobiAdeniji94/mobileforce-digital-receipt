@@ -9,6 +9,7 @@ import 'package:digital_receipt/screens/generate_pdf.dart';
 import 'package:digital_receipt/screens/home_page.dart';
 import 'package:digital_receipt/services/api_service.dart';
 import 'package:digital_receipt/services/email_service.dart';
+import '../services/shared_preference_service.dart';
 import 'package:digital_receipt/services/hiveDb.dart';
 import 'package:digital_receipt/services/shared_preference_service.dart';
 import 'package:digital_receipt/utils/connected.dart';
@@ -31,8 +32,6 @@ import 'package:provider/provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../constant.dart';
 import 'no_internet_connection.dart';
-
-final pdf = pw.Document();
 
 class ReceiptScreen extends StatefulWidget {
   final Receipt receipt;
@@ -121,6 +120,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
               },
               logo,
               currency,
+              widget.receipt,
               () {
                 setState(() {
                   _loading = false;
@@ -140,6 +140,7 @@ Widget ReceiptScreenLayout(
     Function loadingStart,
     String logo,
     String currency,
+    Receipt receipt,
     Function loadingStop,
     String issuerSignature]) {
   Future sendMail() async {
@@ -168,11 +169,9 @@ Widget ReceiptScreenLayout(
     }
   }
 
-  final ApiService _apiService = ApiService();
   final AccountData businessInfo =
       Provider.of<Business>(context, listen: false).accountData;
 
-  bool _loading = false;
   return Column(children: <Widget>[
     SizedBox(
       height: 14,
@@ -203,7 +202,7 @@ Widget ReceiptScreenLayout(
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(
-              width: 1.5,
+              width: 0.5,
               color: Colors.grey[500],
             ),
           ),
@@ -523,53 +522,65 @@ Widget ReceiptScreenLayout(
                             ],
                           ),
                         ),
-                        issuerSignature != null
-                            ? Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(10, 0, 0, 15),
-                                child: Column(
-                                  children: <Widget>[
-                                    // Text(
-                                    //   Provider.of<Receipt>(context).sellerName.split(" ")[0].toLowerCase(),
-                                    //   style: TextStyle(
-                                    //     color: Colors.black,
-                                    //     fontSize: 27,
-                                    //     letterSpacing: 0.03,
-                                    //     fontFamily: 'Southampton',
-                                    //     fontWeight: FontWeight.w300,
-                                    //     height: 1.43,
-                                    //   ),
-                                    // ),
-                                    Image.memory(
-                                      base64Decode(issuerSignature),
-                                      width: 100,
-                                      height: 90,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: <Widget>[
+                            issuerSignature != null
+                                ? Padding(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(10, 0, 0, 15),
+                                    child: Column(
+                                      children: <Widget>[
+                                        // Text(
+                                        //   Provider.of<Receipt>(context).sellerName.split(" ")[0].toLowerCase(),
+                                        //   style: TextStyle(
+                                        //     color: Colors.black,
+                                        //     fontSize: 27,
+                                        //     letterSpacing: 0.03,
+                                        //     fontFamily: 'Southampton',
+                                        //     fontWeight: FontWeight.w300,
+                                        //     height: 1.43,
+                                        //   ),
+                                        // ),
+                                        Image.memory(
+                                          base64Decode(issuerSignature),
+                                          width: 70,
+                                          height: 50,
+                                        ),
+                                        SizedBox(
+                                          height: 2,
+                                        ),
+                                        Container(
+                                          height: 1,
+                                          color: Color(0xFFE3E3E3),
+                                          width: 107,
+                                        ),
+                                        SizedBox(
+                                          height: 2,
+                                        ),
+                                        Text(
+                                          'Signature',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 13,
+                                            letterSpacing: 0.03,
+                                            fontWeight: FontWeight.w300,
+                                            height: 1.43,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(
-                                      height: 2,
-                                    ),
-                                    Container(
-                                      height: 1,
-                                      color: Color(0xFFE3E3E3),
-                                      width: 107,
-                                    ),
-                                    SizedBox(
-                                      height: 2,
-                                    ),
-                                    Text(
-                                      'Signature',
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 13,
-                                        letterSpacing: 0.03,
-                                        fontWeight: FontWeight.w300,
-                                        height: 1.43,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : SizedBox.fromSize()
+                                  )
+                                : SizedBox.fromSize(),
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(0, 0, 10, 15),
+                              child: kLogo1,
+                              height: 35,
+                              width: 100,
+                            )
+                          ],
+                        )
                       ],
                     ),
                   )
@@ -634,17 +645,24 @@ Widget ReceiptScreenLayout(
           loadingStop();
           return;
         }
+        print('sign: $issuerSignature');
+        var upload = await ApiService().uploadSignature(issuerSignature,
+            Provider.of<Receipt>(context, listen: false).receiptId);
 
+        if (upload == null) {
+          loadingStop();
+          return;
+        }
         var res = await Provider.of<Receipt>(context, listen: false)
             .updatedReceipt(
                 Provider.of<Receipt>(context, listen: false).receiptId);
         if (res == 200) {
           await sendPDF(context);
           loadingStop();
-          Navigator.pushAndRemoveUntil(
+          /*  Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (BuildContext context) => HomePage()),
-              (route) => false);
+              (route) => false); */
         }
       },
     ),
@@ -655,6 +673,8 @@ Widget ReceiptScreenLayout(
 }
 
 sendPDF(BuildContext context) async {
+  final pdf = pw.Document();
+
   print('inside');
   RenderRepaintBoundary boundary = _globalKey.currentContext.findRenderObject();
   ui.Image image = await boundary.toImage(pixelRatio: 3.0);
@@ -666,11 +686,14 @@ sendPDF(BuildContext context) async {
     bytes: pngBytes,
   );
 
-  pdf.addPage(pw.Page(build: (pw.Context context) {
-    return pw.Center(
-      child: pw.Image(images),
-    ); // Center
-  }));
+  pdf.addPage(pw.Page(
+    build: (pw.Context context) {
+      return pw.Center(
+        child: pw.Image(images),
+      ); // Center
+    },
+    pageFormat: PdfPageFormat.a4,
+  ));
 
   final output = await getTemporaryDirectory();
   final file = File("${output.path}/receipt.pdf");

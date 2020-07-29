@@ -5,14 +5,12 @@ import 'package:digital_receipt/widgets/app_solid_button.dart';
 import 'package:digital_receipt/widgets/app_text_form_field.dart';
 
 import '../colors.dart';
-import '../utils/receipt_util.dart';
+import 'package:flutter/gestures.dart';
 import 'package:digital_receipt/screens/otp_auth.dart';
 import 'package:digital_receipt/screens/setup.dart';
-import 'package:digital_receipt/widgets/button_loading_indicator.dart';
-import 'package:digital_receipt/widgets/loading.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:digital_receipt/screens/home_page.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -30,6 +28,17 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   bool isLoading = false;
   LoadingIndicator _loadingIndicator = LoadingIndicator(isLoading: false);
+
+   _launchURL(String url) async {
+    //const url = url;
+    if (await canLaunch(url)) {
+      await launch(
+        url,
+      );
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
 
   bool passwordVisible = false;
   var _formKey = GlobalKey<FormState>();
@@ -61,7 +70,6 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -141,13 +149,11 @@ class _SignupScreenState extends State<SignupScreen> {
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (value) {
                           _passwordFocus.unfocus();
-                        
 
                           /* if (!_loadingIndicator.isLoading &&
                               _formKey.currentState.validate()) {
                            // signupUser();
                           } */
-
                         },
                         obscureText: !passwordVisible ? true : false,
                         suffixIcon: IconButton(
@@ -189,13 +195,18 @@ class _SignupScreenState extends State<SignupScreen> {
                     textAlign: TextAlign.center,
                     text: TextSpan(
                       text: 'By signing in you agree to our \n',
+                      style: Theme.of(context).textTheme.subtitle2,
                       children: [
                         TextSpan(
                           text: 'terms of service',
+                          recognizer: TapGestureRecognizer()..onTap = (){
+                             _launchURL('https://degeit.flycricket.io/terms.html');
+                          },
                           style: TextStyle(
                             color: Color(0xFF25CCB3),
                             fontSize: 14,
                             letterSpacing: 0.02,
+                            
                             fontWeight: FontWeight.w300,
                             fontFamily: 'Montserrat',
                           ),
@@ -205,6 +216,9 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         TextSpan(
                           text: 'privacy policy',
+                           recognizer: TapGestureRecognizer()..onTap = (){
+                             _launchURL('https://degeit.flycricket.io/privacy.html');
+                          },
                           style: TextStyle(
                             color: Color(0xFF25CCB3),
                             fontSize: 14,
@@ -259,8 +273,8 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ],
                   ),
-                ),
- */
+                ), */
+
                 /*Platform.isIOS
                     ? Column(
                         children: <Widget>[
